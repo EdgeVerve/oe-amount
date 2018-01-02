@@ -1,0 +1,16 @@
+[{
+        "symbol": "$",
+        "name": "USD",
+        "precision": 2
+    },
+    {
+        "symbol": "INR",
+        "name": "INR",
+        "precision": 3
+    },
+    {
+        "symbol": "YEN",
+        "name": "YEN",
+        "precision": 1
+    }
+]
