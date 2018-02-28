@@ -20,11 +20,11 @@
   "dependencies": {
     "polymer": "Polymer/polymer#^1.2.0",
     "iron-flex-layout": "^1.0.0",
-    "oe-input": "http://evgit/oecloud.io/oe-input.git#master",
-    "oe-combo": "http://evgit/oecloud.io/oe-combo.git#master",
-    "oe-field-behavior": "http://evgit/vamsee/oe-field-behavior.git#master",
-    "oe-i18n-msg": "http://evgit/oecloud.io/oe-i18n-msg.git#master",
-    "oe-utils": "http://evgit/oecloud.io/oe-utils.git#master",
+    "oe-input": "^1.0.0",
+    "oe-combo": "^1.0.0",
+    "oe-field-behavior": "^1.0.0",
+    "oe-i18n-msg": "^1.0.0",
+    "oe-utils": "^1.0.0",
     "paper-tooltip": "^1.0.0"
   },
   "devDependencies": {
@@ -32,11 +32,5 @@
     "iron-demo-helpers": "PolymerElements/iron-demo-helpers#^1.0.0",
     "iron-test-helpers": "PolymerElements/iron-test-helpers#^1.0.0",
     "web-component-tester": "^4.0.0"
-  },
-  "resolutions": {
-    "oe-input": "master",
-    "oe-utils": "master",
-    "oe-field-behavior": "master",
-    "oe-i18n-msg": "master"
   }
 }
