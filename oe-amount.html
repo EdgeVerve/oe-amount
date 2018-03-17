@@ -26,241 +26,332 @@ Example:
 
     <oe-amount currency-url="demo/currency.json" currency-display="symbol"></oe-amount>
 
-@demo demo/index.html
+@demo demo/demo-oe-amount.html
 @hero hero.svg
 -->
 
 <dom-module id="oe-amount">
-    <template>
-        <style include="iron-flex iron-flex-alignment iron-flex-factors">
-            #amtValue oe-input-error {
-                display: none;
+  <template>
+    <style include="iron-flex iron-flex-alignment iron-flex-factors">
+      :host {
+        display: block;
+      }
+      .nolabel {
+        --paper-input-container-label:{
+          display: none;
+        }
+        --paper-input-container-label-floating:{
+          display: none;
+        }
+        --paper-input-container-label-focus:{
+          display: none;
+        }            
+      }
+      .bottomless {
+        --paper-input-container-underline: {
+          display: none;
+        }
+        --paper-input-container-underline-disabled: {
+         display: none;
+        }
+        --paper-input-container-underline-focus: {
+          display: none;
+        }
+        --paper-input-container :{
+          padding: 0px;
+        }
+      }
+      #ccy {
+        --paper-font-caption: {
+          display: none;
+        }        
+      }
+      #amt {
+        --paper-font-caption: {
+          display: none;
+        }        
+      }
+    </style>
+    <paper-input-container id="container" 
+                           no-label-float="[[noLabelFloat]]" 
+                           always-float-label="[[_computeAlwaysFloatLabel(alwaysFloatLabel,placeholder)]]"
+                           auto-validate$="[[autoValidate]]" 
+                           disabled$="[[disabled]]" 
+                           invalid="[[invalid]]">
+      <content select="[prefix]"></content>
+      <!--Hide the label since we will use amount's label field. -->
+      <label hidden style="{display:none;}"></label>
+      <div class="layout horizontal flex end">
+        <!--Fool the paper-input-container with a dummy input box-->
+        <input hidden id="shadowinput">
+        <oe-decimal id="amt" required$=[[required]] disabled$=[[disabled]] user-error-message=[[amtErrorMessage]] error-message={{_amtError}} placeholders$={{errorPlaceholders}} invalid={{_amtInvalid}} label$={{label}} class="bottomless flex-8" always-float-label="[[isFocused]]" precision="[[_getPrecision(selectedCurrency, precision)]]" value={{amount}} min=[[min]] max=[[max]]></oe-decimal>
+        <oe-combo no-label-float id="ccy" required$=[[required]] disabled$=[[disabled]] user-error-message=[[ccyErrorMessage]] error-message={{_ccyError}} invalid={{_ccyInvalid}} class="nolabel bottomless flex-2" value={{currency}} valueproperty="[[ccyValueField]]" displayproperty="[[ccyDisplayField]]" listurl=[[ccyListUrl]] listdata={{ccyList}} selected-item={{selectedCurrency}}></oe-combo>        
+      </div>
+      <content select="[suffix]"></content>
+      <oe-input-error error-message={{errorMessage}} placeholders={{errorPlaceholders}} invalid={{invalid}}></oe-input-error>
+    </paper-input-container>
+      
+  </template>
+  <script>
+    Polymer({
+      is: 'oe-amount',
+      properties: {
+
+        /**
+         * Describes the value of the element, which has currency and amount.
+         *
+         * @type {{currency: Object, amount: number}}
+         */
+        value: {
+          type: Object,
+          notify: true,
+          observer: '_valueChanged'
+        },
+        amount: {
+          type: Number,
+          notify: true,
+          observer: '_amountChanged'
+        },
+        currency: {
+          type: Object,
+          notify: true,
+          observer: '_currencyChanged'
+        },
+
+        /*
+        * Default initial currency code
+        */
+        defaultCcy:{
+          type: String
+        },
+        /**
+         * An array of currencies.
+         */
+        ccyList: {
+          type: Array,
+          observer: '_ccyListChanged'
+        },
+
+        /**
+         * Remote URL to fetch the currency list.
+         */
+        ccyListUrl: {
+          type: String,
+        },
+
+        /**
+         * Stores the property from the currency list items to be 
+         * used as display property for oe-combo.
+         */
+        ccyDisplayField: {
+          type: String
+        },
+        /**
+         * Stores the property from the currency list items to be 
+         * used as value property for oe-combo.
+         */
+        ccyValueField: {
+          type: String
+        },
+        /**
+         * Boolean that floats the label on focus on the input.
+         */
+        isFocused: {
+          type: Boolean,
+          value: false,
+        },
+        /**
+         * The error message to be displayed
+         */
+        errorMessage: {
+          type: String,
+          notify: true
+        },
+        /**
+        * Max limit for value 
+        */
+        max: {
+          type: Object
+        },
+        /**
+        * Min limit for value 
+        */
+        min: {
+          type: Object
+        },
+        /**
+        * Is field mandatoty
+        */
+        required: {
+          type: Boolean
+        },
+        /**
+        * Default precision used when not available on currency.
+        */
+        precision: {
+          type: Number,
+          value: 2
+        },
+        /**
+        * Show this error when currency field is in error
+        */
+        ccyErrorMessage:{
+          type: String
+        },
+        /**
+        * Show this error when amount field is in error
+        */
+        amtErrorMessage:{
+          type: String
+        },
+        _amtInvalid: {
+          type: Boolean,
+          observer: '_updateValidity'
+        },
+        _ccyInvalid: {
+          type: Boolean,
+          observer: '_updateValidity'
+        },
+        _amtError: {
+          type: String,
+          observer: '_updateValidity'
+        },
+        _ccyError: {
+          type: String,
+          observer: '_updateValidity'
+        }
+
+      },
+      // Element Behaviors
+      behaviors: [
+        Polymer.IronFormElementBehavior,
+        OEUtils.FieldBehavior
+      ],
+      attached: function() {
+        /* Well.. here's the hack I hate.
+         * CSS Mixins used in styles section for .bottomless class only hide the 
+         * underline but div still occupies the vertical space and causes misalignment.
+         * The paper-input-container does not provide means to hide the div 
+         * for underline completely 
+         * (.underline class in paper-input-container exposes no mixins)
+         * 
+         * So we nail it through a sledge hammer. Forgive me.
+         */
+        /* SOH */
+        var amtUnderline = this.$.amt.querySelector('.underline');
+        var ccyUnderline = this.$.ccy.querySelector('.underline');
+        amtUnderline.style.display = 'none';
+        ccyUnderline.style.display = 'none';
+        var amtError = this.$.amt.querySelector('.add-on-content');
+        var ccyError = this.$.ccy.querySelector('.add-on-content');
+        amtError.style.display = 'none';
+        ccyError.style.display = 'none';
+        /* EOH */
+      },
+      _valueChanged: function(newValue, oldValue) {
+        if(newValue){
+          this.set('amount', newValue.amount);
+          this.set('currency', newValue.currency);
+        } else {
+          this.set('amount', undefined);
+          this.set('currency', undefined);          
+        }
+      },
+      _amountChanged: function(newVal, oldVal) {
+        if(!this.currency && !this.amount){
+          this.set('value', undefined);
+        } else {
+          if (this.value) {
+            this.value.amount = newVal;
+          } else {
+            this.set('value', {
+              amount: newVal,
+              currency: this.currency
+            });
+          }
+        }
+      },
+      _currencyChanged: function(newVal, oldVal) {
+        if(!this.currency && !this.amount){
+          this.set('value', undefined);
+        } else {
+          if (this.value) {
+            this.value.currency = newVal;
+          } else {
+            this.set('value', {
+              amount: this.amount,
+              currency: newVal
+            });
+          }
+        }
+      },
+      _getPrecision: function(currency, precision) {
+        return (!currency||currency.precision===undefined)?precision: currency.precision;
+      },
+      _updateValidity: function() {
+        var isValid = !(this._amtInvalid || this._ccyInvalid);
+        var newError = this._amtError || this._ccyError;
+        this.setValidity(isValid, newError);
+      },
+      /**
+       * Applies when form validate method is called to check
+       * if the values are provided.
+       *
+       * @return {Boolean} Returns true/false, according to validation success/failure respectively.
+       */
+      _validate: function() {
+        var value = this.value;
+        var isValid = true;
+        if(value){
+          if(!value.currency && !value.amount){
+            this.setValidity(false, 'valueMissing');
+            isValid = false;            
+          } else if(value.currency && !value.amount){
+            this.setValidity(false, this.amtErrorMessage||'amountMissing');
+            isValid = false;
+          } else if(value.amount && !value.currency){
+            this.setValidity(false, this.ccyErrorMessage||'currencyMissing');
+            isValid = false;            
+          }
+        } else if(this.required) {
+            this.setValidity(false, 'valueMissing');
+            isValid = false;
+        }
+      },
+      /**
+       * Applies when currency list is set/updated.
+       * If existing currency is present in newList, find and set as new selectedCurrency
+       * otherwise, select first currency by default.
+       * @param {Object} newVal
+       * @param {Object} oldVal
+       */
+      _ccyListChanged: function(newVal, oldVal) {
+        var self = this;
+        if(newVal && Array.isArray(newVal) && newVal.length > 0){
+          var newCcy;
+          if(self.currency){
+            newCcy = newVal.find(function(c){
+              return self.currency === (self.ccyValueField?c[self.ccyValueField]:c);
+            });
+            if(!newCcy){
+              self.setValidity(false,self.ccyErrorMessage||'invalidCurrency');
             }
-
-            #ccyValue oe-input-error {
-                display: none;
+          } else if(self.required) {
+            /*Set currency only if amount is required*/
+            if(self.defaultCcy){
+              /* Look for default currency */
+              newCcy = newVal.find(function(c){
+                return self.defaultCcy === (self.ccyValueField?c[self.ccyValueField]:c);
+              });
             }
+            newCcy = (newCcy || newVal[0]);
+            this.set('currency', this.ccyValueField?newCcy[this.ccyValueField]:newCcy);
+          }
+        } else {
+          this.set('currency', undefined);
+        }
+      }
+    });
 
-            .amount-error {
-                left: 28px;
-                right: 28px;
-                margin-top: -8px;
-            }
-        </style>
-        <div>
-            <div class="layout horizontal flex end">
-                <oe-decimal id="amtValue" required$=[[required]] disabled$=[[disabled]] user-error-message=[[userErrorMessage]] error-message={{errorMessage}} placeholders$={{errorPlaceholders}} invalid={{invalid}} label$={{label}} class="flex-8" on-focus="_computeFocused" on-blur="_computeFocused" always-float-label="[[isFocused]]" precision="[[precision]]" value={{amount}}></oe-decimal>
-                <oe-combo id="ccyValue" required$=[[required]] disabled$=[[disabled]] user-error-message=[[userErrorMessage]] error-message={{errorMessage}} invalid={{invalid}} class="flex-2" on-focus="_computeFocused" on-blur="_computeFocused" value={{currency}} displayproperty="[[currencyDisplay]]" listurl=[[currencyUrl]] listdata={{currencyList}}></oe-combo>        
-            </div>
-            <oe-input-error class="amount-error" error-message={{message}} user-error-message=[[userErrorMessage]] placeholders={{errorPlaceholders}} invalid={{invalid}}></oe-input-error>
-        </div>
-    </template>
-    <script>
-        Polymer({
-            is: 'oe-amount',
-
-            properties: {
-
-                /**
-                 * Describes the value of the element, which has currency and amount.
-                 *
-                 * @type {{currency: Object, amount: number}}
-                 */
-                value: {
-                    type: Object,
-                    notify: true,
-                    computed: '_computeValue(amount, currency)'
-                },
-
-                /**
-                 * Stores the amount.
-                 */
-                amount: {
-                    type: Number,
-                    // notify: true
-                },
-
-                /**
-                 * Describes the currency details of the oe-amount element.
-                 *
-                 * @type {{Object}}
-                 */
-                currency: {
-                    type: Object,
-                    // notify: true,
-                    observer: '_updateCurrency'
-                },
-
-                /**
-                 * An array of values storing the currency objects.
-                 */
-                currencyList: {
-                    type: Array,
-                    // notify: true,
-                    // reflectToAttribute: true,
-                    observer: '_updateCurrencyList'
-                },
-
-                /**
-                 * Stores the URL from where to fetch the currency list.
-                 */
-                currencyUrl: {
-                    type: String,
-                    // reflectToAttribute: true
-                },
-
-                /**
-                 * Stores the property from the currency list items to be 
-                 * used as display property for oe-combo.
-                 */
-                currencyDisplay: {
-                    type: String
-                },
-
-                /**
-                 * Boolean that floats the label on focus on the input.
-                 */
-                isFocused: {
-                    type: Boolean,
-                    value: false,
-                    // reflectToAttribute: true
-                },
-
-                /**
-                 * Stores the error message to be displayed
-                 */
-                message: {
-                    type: String,
-                    notify: true
-                }
-            },
-
-            // Element Behavior
-
-            behaviors: [
-                Polymer.IronFormElementBehavior,
-                OEUtils.FieldBehavior
-            ],
-
-            attached: function() {
-                var ccyRequired = this.$.ccyValue.querySelector(".required");
-                if (ccyRequired) {
-                    ccyRequired.style.display = "none";
-                }
-                var amtError = this.$.amtValue.querySelector("oe-input-error");
-                var ccyError = this.$.ccyValue.querySelector("oe-input-error");
-                amtError.style.display = "none";
-                ccyError.style.display = "none";
-            },
-            
-            /**
-             * Applies when form validate method is called to check
-             * if the values are provided.
-             *
-             * @return {Boolean} Returns true/false, according to validation success/failure respectively.
-             */
-            _validate: function() {
-                var value = this.get("value");
-                if (value && value.amount && value.currency && 
-                  typeof value.currency === 'object' && 
-                  value.currency[this.get("currencyDisplay")] && value.currency.precision) {
-                    return true;
-                } else {
-                    return false;
-                }
-            },
-
-            /**
-             * Applies when focus/blur even is generated on the element to
-             * enable/disable highlight.
-             * 
-             * @param {event} e
-             */
-            _computeFocused: function(e) {
-                var amtError = this.$.amtValue.querySelector("oe-input-error");
-                var ccyError = this.$.ccyValue.querySelector("oe-input-error");
-                if(!this.invalid && amtError.errorMessage) {
-                    this.$.amtValue.validate();
-                }
-                if (!this.invalid && ccyError.errorMessage) {
-                    this.$.ccyValue.validate();
-                }
-                if (this.$.amtValue.invalid || this.$.ccyValue.invalid) {
-                    this.set("message", amtError.errorMessage || ccyError.errorMessage || "");
-                    this.set("invalid", true);
-                } else {
-                    this.set("message", "");
-                    this.set("invalid", false);
-                }
-                
-                var amtUnderline = this.$.amtValue.querySelector(".underline");
-                var ccyUnderline = this.$.ccyValue.querySelector(".underline");
-                if (e.type === 'focus') {
-                    this.set('isFocused', true);
-                    if (!amtUnderline.classList.contains("is-highlighted")) {
-                        amtUnderline.classList.add("is-highlighted");
-                    }
-                    if (!ccyUnderline.classList.contains("is-highlighted")) {
-                        ccyUnderline.classList.add("is-highlighted");
-                    }
-                } else {
-                    this.set('isFocused', false);
-                    if (amtUnderline.classList.contains("is-highlighted")) {
-                        amtUnderline.classList.remove("is-highlighted");
-                    }
-                    if (ccyUnderline.classList.contains("is-highlighted")) {
-                        ccyUnderline.classList.remove("is-highlighted");
-                    }
-                }
-            },
-
-            /**
-             * Applies when currency list is set/updated.
-             * Sets the default currency to the first element in the currency list.
-             * 
-             * @param {Object} newVal
-             * @param {Object} oldVal
-             */
-            _updateCurrencyList: function(newVal, oldVal) {
-                if (newVal && Array.isArray(newVal) && newVal.length > 0) {
-                    this.set('currency', newVal[0])
-                }
-            },
-
-            /**
-             * Applies when currency list is set/updated.
-             * Sets the default currency to the first element in the currency list.
-             * 
-             * @param {Object} newVal
-             * @param {Object} oldVal
-             */
-             _updateCurrency: function(newVal, oldVal) {
-                if (newVal && typeof newVal === 'object' && newVal.precision) {
-                    this.set('precision', newVal.precision);
-                } else {
-                    this.set('precision', 2);
-                }
-            },
-
-            /**
-             * Applies when change in amount/currency to compute the value
-             * property of the element.
-             * 
-             * @param {Number} amount Stores amount decimal
-             * @param {Object} currency Stores the currency object
-             * @return {Object} Stores amount and currency as key value.
-             */
-            _computeValue: function(amount, currency) {
-                var value = {};
-                var precision = 2;
-                if (currency && currency.precision) {
-                    precision = currency.precision;
-                }
-                value.amount = Math.round10(amount, -precision);
-                value.currency = currency || {};
-                this.set('amount', value.amount);
-                return value;
-            }
-        });
-    </script>
+  </script>
 </dom-module>

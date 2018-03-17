@@ -5,10 +5,6 @@ remain with the applicable third party licensors or the open source community as
 here transfers the rights to the third party and open source components, except as expressly permitted. 
 Any unauthorized reproduction, storage, transmission in any form or by any means (including without limitation to electronic, mechanical, printing, photocopying, recording or  otherwise), or any distribution of this Program,or any portion of it, may result in severe civil and criminal penalties, and will be prosecuted to the maximum extent possible under the law. */
 
-var browser = process.env.BROWSER || 'chrome';
-var browsers = [];
-browsers.push(browser);
-
 module.exports = {
   verbose: true,
   testTimeout: 2 * 60 * 1000,
@@ -17,7 +13,7 @@ module.exports = {
       disabled: true
     },
     local: {
-      browsers: browsers
+      browsers: ['chrome','firefox','ie']
     },
     istanbul: {
       dir: './coverage',
